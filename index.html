@@ -98,13 +98,23 @@
             $("#form_entries").append(html);
             i++;
             $(".form-control").change(function(e) {
-                console.log(this, this.id, this.value);
-                if ($(this).hasClass("resourceType")) {
-                    console.log("resourceType")
-                    var donor = $(this).siblings(".orgA").val()
-                    var recipient = $(this).siblings(".orgB").val()
-                    edges.update({from: donor, to: recipient, id: this.id})
-                } else {
+                var parent = $(this).parent();
+                var donor = $(".orgA", parent).val();
+                var resourceType = $(".resourceType", parent).val();
+                var resourceTypeId = $(".resourceType", parent).attr("id");
+                var recipient = $(".orgB", parent).val();
+                console.log(this.id, donor, resourceType, recipient);
+                if (donor && recipient && resourceType) {
+                    console.log(`linking ${donor} to ${recipient}`)
+                    var color = null;
+                    if (resourceType.toLowerCase() == "money" || resourceType.startsWith("$")) {
+                        color = "green";
+                    } else if (["soil", "earth", "dirt"].includes(resourceType.toLowerCase())) {
+                        color = "brown";
+                    }
+                    edges.update({from: donor, to: recipient, id: resourceTypeId, arrows: "to", color: color})
+                }
+                if (!$(this).hasClass("resourceType")) {
                     nodes.update({id: this.value, label: this.value})
                 }
             });
