@@ -114,7 +114,7 @@
                     } else if (["volunteers", "labour"].includes(resourceType.toLowerCase())) {
                         color = "red";
                     }
-                    edges.update({from: donor, to: recipient, id: resourceTypeId, arrows: "to", color: color})
+                    edges.update({from: donor, to: recipient, id: resourceTypeId, label: resourceType, arrows: "to", color: color})
                 }
                 if (!$(this).hasClass("resourceType")) {
                     nodes.update({id: this.value, label: this.value})
