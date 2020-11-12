@@ -99,15 +99,15 @@
             i++;
             $(".form-control").change(function(e) {
                 var parent = $(this).parent();
-                var donor = $(".orgA", parent).val();
-                var resourceType = $(".resourceType", parent).val();
+                var donor = $(".orgA", parent).val().trim();
+                var resourceType = $(".resourceType", parent).val().trim();
                 var resourceTypeId = $(".resourceType", parent).attr("id");
-                var recipient = $(".orgB", parent).val();
+                var recipient = $(".orgB", parent).val().trim();
                 console.log(this.id, donor, resourceType, recipient);
                 if (donor && recipient && resourceType) {
                     console.log(`linking ${donor} to ${recipient}`)
                     var color = null;
-                    if (resourceType.toLowerCase() == "money" || resourceType.startsWith("$")) {
+                    if (["money", "koha", "donations", "funding", "funds"].includes(resourceType.toLowerCase()) || resourceType.startsWith("$")) {
                         color = "green";
                     } else if (["soil", "earth", "dirt"].includes(resourceType.toLowerCase())) {
                         color = "brown";
