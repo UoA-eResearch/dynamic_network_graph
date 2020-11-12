@@ -111,6 +111,8 @@
                         color = "green";
                     } else if (["soil", "earth", "dirt"].includes(resourceType.toLowerCase())) {
                         color = "brown";
+                    } else if (["volunteers", "labour"].includes(resourceType.toLowerCase())) {
+                        color = "red";
                     }
                     edges.update({from: donor, to: recipient, id: resourceTypeId, arrows: "to", color: color})
                 }
