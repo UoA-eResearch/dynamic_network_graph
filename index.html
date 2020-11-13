@@ -106,9 +106,9 @@
             } else if (data.entries) {
                 for (entry of Object.values(data.entries)) {
                     console.log(entry)
-                    nodes.update({id: entry.donor, label: entry.donor})
-                    nodes.update({id: entry.recipient, label: entry.recipient})
-                    edges.update({from: entry.donor, to: entry.recipient, id: entry.id, label: entry.resourceType, arrows: "to", color: getColorForResourceType(entry.resourceType)})
+                    nodes.update({id: entry.donor.toLowerCase(), label: entry.donor})
+                    nodes.update({id: entry.recipient.toLowerCase(), label: entry.recipient})
+                    edges.update({from: entry.donor.toLowerCase(), to: entry.recipient.toLowerCase(), id: entry.id, label: entry.resourceType, arrows: "to", color: getColorForResourceType(entry.resourceType)})
                 }
             } else if (data.error) {
                 $("#info").html(`<div class="alert alert-danger" role="alert">Error: ${data.error}</div>`)
@@ -158,7 +158,7 @@
                 console.log(this.id, donor, resourceType, recipient, entryId);
                 if (donor && recipient && resourceType) {
                     console.log(`linking ${donor} to ${recipient}`)
-                    edges.update({from: donor, to: recipient, id: entryId, label: resourceType, arrows: "to", color: getColorForResourceType(resourceType)})
+                    edges.update({from: donor.toLowerCase(), to: recipient.toLowerCase(), id: entryId, label: resourceType, arrows: "to", color: getColorForResourceType(resourceType)})
                     ws.send(JSON.stringify({
                         action: "upsert_entry",
                         session_id: window.session_id,
@@ -171,7 +171,7 @@
                     }))
                 }
                 if (!$(this).hasClass("resourceType")) {
-                    nodes.update({id: this.value, label: this.value})
+                    nodes.update({id: this.value.toLowerCase(), label: this.value})
                 }
             });
         })
