@@ -58,7 +58,7 @@
         <div id="info">Users connected: <span id="users_connected">1</span></div>
         <div id="form_entries"></div>
         <div class="text-center">
-            <button id="add" class="btn btn-primary mt-3">Add entry</button>
+            <button id="add" class="btn btn-primary mt-3">Add entry</button> <button id="export" class="btn btn-success mt-3">Export as CSV</button>
         </div>
     </div>
 
@@ -178,6 +178,21 @@
                     nodes.update({id: this.value, label: this.value})
                 }
             });
+        })
+
+        $("#export").click(function() {
+            var csv = 'donor,resourceType,recipient\n';
+            for (var entry of edges.get()) {
+                csv += entry.from + "," + entry.label + "," + entry.to;
+                csv += "\n";
+            }
+        
+            console.log(csv);
+            var hiddenElement = document.createElement('a');
+            hiddenElement.href = 'data:text/csv;charset=utf-8,' + encodeURI(csv);
+            hiddenElement.target = '_blank';
+            hiddenElement.download = `network_graph_${session_id}.csv`;
+            hiddenElement.click();
         })
     </script>
 </body>
