@@ -17,7 +17,9 @@ async def app(websocket, path):
             session_id = data.get("session_id")
             logging.info(f"action:{action} session_id:{session_id}")
             sess = sessions.get(session_id)
-            if action == "create_session":
+            if action != "create_session" and not sess:
+                await websocket.send(json.dumps({"error": "session ID not known"}))
+            elif action == "create_session":
                 session_id = random.randint(0, 9999)
                 sessions[session_id] = {
                     "entries": {},
@@ -29,12 +31,14 @@ async def app(websocket, path):
                 message = json.dumps({"user_count": len(sess["users"])}) # Inform all connected users about the newly connected user
                 await asyncio.wait([user.send(message) for user in sess["users"]])
             elif action == "request_entries":
-                await websocket.send(json.dumps(sess["entries"]))
+                await websocket.send(json.dumps({
+                    "entries": sess["entries"]
+                }))
             elif action == "upsert_entry":
                 entry = data.get("entry")
                 entry_id = entry.get("id")
                 sess["entries"][entry_id] = entry
-                message = json.dumps({"upserted_entry": entry}) # Inform all connected users about the new entry
+                message = json.dumps({"entries": [entry]}) # Inform all connected users about the new entry
                 await asyncio.wait([user.send(message) for user in sess["users"]])
             else:
                 logging.error("unsupported event: {}", data)

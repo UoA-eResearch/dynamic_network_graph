@@ -41,6 +41,10 @@
             overflow-y: scroll;
         }
 
+        #info {
+            margin: 15px;
+        }
+
         .form-inline .form-control {
             width: 150px;
             margin: 10px;
@@ -51,6 +55,7 @@
 <body>
     <div id="network"></div>
     <div id="form">
+        <div id="info">Users connected: <span id="users_connected">1</span></div>
         <div id="form_entries"></div>
         <div class="text-center">
             <button id="add" class="btn btn-primary mt-3">Add entry</button>
@@ -80,42 +85,94 @@
         // initialize your network!
         var network = new vis.Network(container, data, options);
 
-        var i = 0;
+        function getColorForResourceType(resourceType) {
+            var color = null;
+            if (["money", "koha", "donations", "funding", "funds"].includes(resourceType.toLowerCase()) || resourceType.startsWith("$")) {
+                color = "green";
+            } else if (["soil", "earth", "dirt"].includes(resourceType.toLowerCase())) {
+                color = "brown";
+            } else if (["volunteers", "labour"].includes(resourceType.toLowerCase())) {
+                color = "red";
+            }
+            return color;
+        }
+
+        //var ws = new WebSocket("ws://localhost:6789/");
+        var ws = new WebSocket("wss://api-proxy.auckland-cer.cloud.edu.au/dynamic_network_graph");
+        ws.onmessage = function(event) {
+            data = JSON.parse(event.data);
+            console.log(data);
+            if (data.session_id) {
+                window.session_id = data.session_id;
+                location.hash = data.session_id;
+            } else if (data.user_count) {
+                $("#users_connected").text(data.user_count);
+            } else if (data.entries) {
+                for (entry of Object.values(data.entries)) {
+                    console.log(entry)
+                    nodes.update({id: entry.donor, label: entry.donor})
+                    nodes.update({id: entry.recipient, label: entry.recipient})
+                    edges.update({from: entry.donor, to: entry.recipient, id: entry.id, label: entry.resourceType, arrows: "to", color: getColorForResourceType(entry.resourceType)})
+                }
+            } else if (data.error) {
+                $("#info").html(`<div class="alert alert-danger" role="alert">Error: ${data.error}</div>`)
+            }
+        }
+
+        ws.onopen = function() {
+            if (location.hash.length > 1) {
+                window.session_id = parseInt(location.hash.slice(1));
+                ws.send(JSON.stringify({
+                    action: "connect",
+                    session_id: window.session_id
+                }))
+                ws.send(JSON.stringify({
+                    action: "request_entries",
+                    session_id: window.session_id
+                }))
+            } else {
+                ws.send(JSON.stringify({
+                    action: "create_session"
+                }))
+            }
+        }
 
         $("#add").click(function() {
             console.log("add")
+            var id = Math.random();
             var html = `<div class="form-row">
-                            <form class="form-inline">
-                                <label class="sr-only" for="orgA_${i}">Organisation A</label>
-                                <input type="text" class="form-control orgA" id="orgA_${i}" placeholder="Organisation A">
+                            <form class="form-inline" id=${id}>
+                                <label class="sr-only" for="orgA_${id}">Organisation A</label>
+                                <input type="text" class="form-control orgA" id="orgA_${id}" placeholder="Organisation A">
                                 gives
-                                <label class="sr-only" for="resourceType_${i}">Resource type</label>
-                                <input type="text" class="form-control resourceType" id="resourceType_${i}" placeholder="Resource type">
+                                <label class="sr-only" for="resourceType_${id}">Resource type</label>
+                                <input type="text" class="form-control resourceType" id="resourceType_${id}" placeholder="Resource type">
                                 to
-                                <label class="sr-only" for="orgB_${i}">Organisation B</label>
-                                <input type="text" class="form-control orgB" id="orgB_${i}" placeholder="Organisation B">
+                                <label class="sr-only" for="orgB_${id}">Organisation B</label>
+                                <input type="text" class="form-control orgB" id="orgB_${id}" placeholder="Organisation B">
                             </form>
                         </div>`;
             $("#form_entries").append(html);
-            i++;
             $(".form-control").change(function(e) {
                 var parent = $(this).parent();
                 var donor = $(".orgA", parent).val().trim();
                 var resourceType = $(".resourceType", parent).val().trim();
-                var resourceTypeId = $(".resourceType", parent).attr("id");
+                var entryId = parent.attr("id");
                 var recipient = $(".orgB", parent).val().trim();
-                console.log(this.id, donor, resourceType, recipient);
+                console.log(this.id, donor, resourceType, recipient, entryId);
                 if (donor && recipient && resourceType) {
                     console.log(`linking ${donor} to ${recipient}`)
-                    var color = null;
-                    if (["money", "koha", "donations", "funding", "funds"].includes(resourceType.toLowerCase()) || resourceType.startsWith("$")) {
-                        color = "green";
-                    } else if (["soil", "earth", "dirt"].includes(resourceType.toLowerCase())) {
-                        color = "brown";
-                    } else if (["volunteers", "labour"].includes(resourceType.toLowerCase())) {
-                        color = "red";
-                    }
-                    edges.update({from: donor, to: recipient, id: resourceTypeId, label: resourceType, arrows: "to", color: color})
+                    edges.update({from: donor, to: recipient, id: entryId, label: resourceType, arrows: "to", color: getColorForResourceType(resourceType)})
+                    ws.send(JSON.stringify({
+                        action: "upsert_entry",
+                        session_id: window.session_id,
+                        entry: {
+                            id: entryId,
+                            donor: donor,
+                            resourceType: resourceType,
+                            recipient: recipient
+                        }
+                    }))
                 }
                 if (!$(this).hasClass("resourceType")) {
                     nodes.update({id: this.value, label: this.value})
