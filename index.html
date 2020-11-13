@@ -25,20 +25,11 @@
             height: 100%;
             padding: 0;
             margin: 0;
-            overflow: hidden;
-        }
-
-        #network {
-            width: 70%;
+            overflow-x: hidden;
         }
 
         #form {
-            position: absolute;
-            right: 0;
-            top: 0;
-            width: 30%;
             background-color: lightgray;
-            overflow-y: scroll;
         }
 
         #info {
@@ -46,19 +37,23 @@
         }
 
         .form-inline .form-control {
-            width: 150px;
+            max-width: 150px;
             margin: 10px;
         }
     </style>
 </head>
 
 <body>
-    <div id="network"></div>
-    <div id="form">
-        <div id="info">Users connected: <span id="users_connected">1</span></div>
-        <div id="form_entries"></div>
-        <div class="text-center">
-            <button id="add" class="btn btn-primary mt-3">Add entry</button> <button id="export" class="btn btn-success mt-3">Export as CSV</button>
+    <div class="container-fluid h-100">
+        <div class="row h-100">
+            <div id="network" class="d-none d-lg-block col-8"></div>
+            <div id="form" class="col">
+                <div id="info">Users connected: <span id="users_connected">1</span></div>
+                <div id="form_entries"></div>
+                <div class="text-center">
+                    <button id="add" class="btn btn-primary mt-3">Add entry</button> <button id="export" class="btn btn-success mt-3">Export as CSV</button>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -141,15 +136,15 @@
             console.log("add")
             var id = Math.random();
             var html = `<div class="form-row">
-                            <form class="form-inline" id=${id}>
+                            <form class="form-inline" id=${id} class="row">
                                 <label class="sr-only" for="orgA_${id}">Organisation A</label>
-                                <input type="text" class="form-control orgA" id="orgA_${id}" placeholder="Organisation A">
+                                <input type="text" class="form-control orgA col" id="orgA_${id}" placeholder="Organisation A">
                                 gives
                                 <label class="sr-only" for="resourceType_${id}">Resource type</label>
-                                <input type="text" class="form-control resourceType" id="resourceType_${id}" placeholder="Resource type">
+                                <input type="text" class="form-control resourceType col" id="resourceType_${id}" placeholder="Resource type">
                                 to
                                 <label class="sr-only" for="orgB_${id}">Organisation B</label>
-                                <input type="text" class="form-control orgB" id="orgB_${id}" placeholder="Organisation B">
+                                <input type="text" class="form-control orgB col" id="orgB_${id}" placeholder="Organisation B">
                             </form>
                         </div>`;
             $("#form_entries").append(html);
