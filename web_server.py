@@ -83,5 +83,5 @@ try:
         start_server,
         save_loop()
     ]))
-except KeyboardInterrupt:
+except:
     save()
