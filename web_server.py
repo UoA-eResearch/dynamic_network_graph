@@ -41,7 +41,7 @@ async def app(websocket, path):
                 }
                 sessions[session_id] = sess
             if sess and not sess.get("users"):
-                sess["users"] = set(websocket)
+                sess["users"] = set([websocket])
             if action == "create_session":
                 session_id = random.randint(0, 9999)
                 sessions[session_id] = {
