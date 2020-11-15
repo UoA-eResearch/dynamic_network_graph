@@ -11,7 +11,7 @@ async def test():
         response = await websocket.recv()
         print(response)
         session_id = json.loads(response)["session_id"]
-        #session_id = 3026
+        #session_id = 1000
         await websocket.send(json.dumps({
             "action": "connect",
             "session_id": session_id

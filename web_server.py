@@ -7,7 +7,24 @@ import websockets
 import random
 
 logging.basicConfig(level=logging.INFO)
-sessions = {}
+try:
+    with open("db.json", "r") as f:
+        sessions = json.load(f)
+        print("loaded DB from file")
+except Exception as e:
+    print(e)
+    sessions = {}
+
+def save():
+    logging.info("Saving")
+    safe_sess = {sid: {"entries": sess["entries"]} for sid, sess in sessions.items()}
+    with open("db.json", "w") as f:
+        json.dump(safe_sess, f)
+
+async def save_loop():
+    while True:
+        await asyncio.sleep(300)
+        save()
 
 async def app(websocket, path):
     try:
@@ -17,9 +34,15 @@ async def app(websocket, path):
             session_id = data.get("session_id")
             logging.info(f"action:{action} session_id:{session_id}")
             sess = sessions.get(session_id)
-            if action != "create_session" and not sess:
-                await websocket.send(json.dumps({"error": "session ID not known"}))
-            elif action == "create_session":
+            if session_id and not sess:
+                sess = {
+                    "entries": {},
+                    "users": set([websocket]),
+                }
+                sessions[session_id] = sess
+            if sess and not sess.get("users"):
+                sess["users"] = set(websocket)
+            if action == "create_session":
                 session_id = random.randint(0, 9999)
                 sessions[session_id] = {
                     "entries": {},
@@ -46,7 +69,7 @@ async def app(websocket, path):
         logging.error(f"User disconnected: {e}")
     finally:
         for session_id, sess in sessions.items():
-            if websocket in sess["users"]:
+            if sess.get("users") and websocket in sess["users"]:
                 sess["users"].remove(websocket)
                 if len(sess["users"]) > 0:
                     message = json.dumps({"user_count": len(sess["users"])}) # Inform all connected users about the disconnected user
@@ -55,5 +78,10 @@ async def app(websocket, path):
 
 start_server = websockets.serve(app, "localhost", 6789)
 
-asyncio.get_event_loop().run_until_complete(start_server)
-asyncio.get_event_loop().run_forever()
+try:
+    asyncio.get_event_loop().run_until_complete(asyncio.wait([
+        start_server,
+        save_loop()
+    ]))
+except KeyboardInterrupt:
+    save()
