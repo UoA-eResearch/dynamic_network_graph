@@ -16,6 +16,7 @@ try:
         logging.info("loaded DB from file")
 except Exception as e:
     logging.error(f"Error loading DB, starting fresh. {e}")
+print(sessions)
 
 def save():
     logging.info("Saving")
@@ -25,8 +26,6 @@ def save():
 
 def receiveSignal(signalNumber, frame):
     logging.info("SIGTERM caught")
-    save()
-    sys.exit()
 
 signal.signal(signal.SIGTERM, receiveSignal)
 
@@ -40,7 +39,7 @@ async def app(websocket, path):
         async for message in websocket:
             data = json.loads(message)
             action = data.get("action")
-            session_id = data.get("session_id")
+            session_id = str(data.get("session_id"))
             logging.info(f"action:{action} session_id:{session_id}")
             sess = sessions.get(session_id)
             if session_id and not sess:
@@ -52,7 +51,7 @@ async def app(websocket, path):
             if sess and not sess.get("users"):
                 sess["users"] = set([websocket])
             if action == "create_session":
-                session_id = random.randint(0, 9999)
+                session_id = str(random.randint(0, 9999))
                 sessions[session_id] = {
                     "entries": {},
                     "users": set([websocket]),

@@ -117,7 +117,7 @@
 
         ws.onopen = function() {
             if (location.hash.length > 1) {
-                window.session_id = parseInt(location.hash.slice(1));
+                window.session_id = location.hash.slice(1);
                 ws.send(JSON.stringify({
                     action: "connect",
                     session_id: window.session_id
