@@ -9,13 +9,13 @@ import signal
 import sys
 
 logging.basicConfig(level=logging.INFO)
+sessions = {}
 try:
     with open("db.json", "r") as f:
         sessions = json.load(f)
         logging.info("loaded DB from file")
 except Exception as e:
     logging.error(f"Error loading DB, starting fresh. {e}")
-    sessions = {}
 
 def save():
     logging.info("Saving")
