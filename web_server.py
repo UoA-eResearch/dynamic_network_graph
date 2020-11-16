@@ -92,6 +92,6 @@ try:
         start_server,
         save_loop()
     ]))
-except Exception as e:
-    logging.error(e)
+except BaseException as e:
+    logging.error(f"{type(e)}. {e}")
     save()
