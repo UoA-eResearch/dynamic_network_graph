@@ -5,14 +5,16 @@ import json
 import logging
 import websockets
 import random
+import signal
+import sys
 
 logging.basicConfig(level=logging.INFO)
 try:
     with open("db.json", "r") as f:
         sessions = json.load(f)
-        print("loaded DB from file")
+        logging.info("loaded DB from file")
 except Exception as e:
-    print(e)
+    logging.error(f"Error loading DB, starting fresh. {e}")
     sessions = {}
 
 def save():
@@ -20,6 +22,13 @@ def save():
     safe_sess = {sid: {"entries": sess["entries"]} for sid, sess in sessions.items()}
     with open("db.json", "w") as f:
         json.dump(safe_sess, f)
+
+def receiveSignal(signalNumber, frame):
+    logging.info("SIGTERM caught")
+    save()
+    sys.exit()
+
+signal.signal(signal.SIGTERM, receiveSignal)
 
 async def save_loop():
     while True:
@@ -83,5 +92,6 @@ try:
         start_server,
         save_loop()
     ]))
-except:
+except Exception as e:
+    logging.error(e)
     save()
