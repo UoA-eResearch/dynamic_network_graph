@@ -138,6 +138,9 @@
                     }
                 }
                 setupHooks();
+            } else if (data.deleted_entry) {
+                $("#" + $.escapeSelector(data.deleted_entry)).remove()
+                edges.remove(data.deleted_entry)
             } else if (data.error) {
                 $("#info").html(`<div class="alert alert-danger" role="alert">Error: ${data.error}</div>`)
             }
@@ -176,36 +179,51 @@
                             to
                             <label class="sr-only" for="orgB_${id}">Organisation B</label>
                             <input type="text" class="form-control org orgB col search" id="orgB_${id}" placeholder="Organisation B" autocomplete="off" value="${orgB}">
+                            <button id="delete_${id}" type="button" class="btn btn-danger delete">Delete</button>
                         </form>
                     </div>`
         }
 
+        function formControlChange(e) {
+            var parent = $(this).parent();
+            var donor = $(".orgA", parent).val().trim();
+            var resourceType = $(".resourceType", parent).val().trim();
+            var entryId = parent.attr("id");
+            var recipient = $(".orgB", parent).val().trim();
+            console.log(this.id, donor, resourceType, recipient, entryId);
+            if (donor && recipient && resourceType) {
+                console.log(`linking ${donor} to ${recipient}`)
+                edges.update({ from: donor.toLowerCase(), to: recipient.toLowerCase(), id: entryId, label: resourceType, arrows: "to", color: getColorForResourceType(resourceType) })
+                ws.send(JSON.stringify({
+                    action: "upsert_entry",
+                    session_id: window.session_id,
+                    entry: {
+                        id: entryId,
+                        donor: donor,
+                        resourceType: resourceType,
+                        recipient: recipient
+                    }
+                }))
+            }
+            if (!$(this).hasClass("resourceType")) {
+                nodes.update({ id: this.value.toLowerCase(), label: this.value })
+            }
+        }
+
+        function deleteHandler() {
+            var entryId = $(this).parent().attr("id");
+            console.log(`deleting ${entryId}`)
+            $(this).parent().remove();
+            edges.remove(entryId)
+            ws.send(JSON.stringify({
+                action: "delete_entry",
+                session_id: window.session_id,
+                entry_id: entryId
+            }))
+        }
+
         function setupHooks() {
-            $(".form-control").change(function (e) {
-                var parent = $(this).parent();
-                var donor = $(".orgA", parent).val().trim();
-                var resourceType = $(".resourceType", parent).val().trim();
-                var entryId = parent.attr("id");
-                var recipient = $(".orgB", parent).val().trim();
-                console.log(this.id, donor, resourceType, recipient, entryId);
-                if (donor && recipient && resourceType) {
-                    console.log(`linking ${donor} to ${recipient}`)
-                    edges.update({ from: donor.toLowerCase(), to: recipient.toLowerCase(), id: entryId, label: resourceType, arrows: "to", color: getColorForResourceType(resourceType) })
-                    ws.send(JSON.stringify({
-                        action: "upsert_entry",
-                        session_id: window.session_id,
-                        entry: {
-                            id: entryId,
-                            donor: donor,
-                            resourceType: resourceType,
-                            recipient: recipient
-                        }
-                    }))
-                }
-                if (!$(this).hasClass("resourceType")) {
-                    nodes.update({ id: this.value.toLowerCase(), label: this.value })
-                }
-            });
+            $(".form-control").off("change").change(formControlChange);
             $('.org').autoComplete({
                 resolver: 'custom',
                 events: {
@@ -228,6 +246,7 @@
                     }
                 }
             });
+            $(".delete").off("click").click(deleteHandler)
         }
 
         $("#add").click(function () {

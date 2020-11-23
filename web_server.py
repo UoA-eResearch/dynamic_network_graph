@@ -71,6 +71,11 @@ async def app(websocket, path):
                 sess["entries"][entry_id] = entry
                 message = json.dumps({"entries": [entry]}) # Inform all connected users about the new entry
                 await asyncio.wait([user.send(message) for user in sess["users"]])
+            elif action == "delete_entry":
+                entry_id = data.get("entry_id")
+                del sess["entries"][entry_id]
+                message = json.dumps({"deleted_entry": entry_id}) # Inform all connected users about the deleted entry
+                await asyncio.wait([user.send(message) for user in sess["users"]])
             else:
                 logging.error("unsupported event: {}", data)
     except websockets.exceptions.ConnectionClosedError as e:
