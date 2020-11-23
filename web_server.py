@@ -26,6 +26,7 @@ def save():
 
 def receiveSignal(signalNumber, frame):
     logging.info("SIGTERM caught")
+    sys.exit()
 
 signal.signal(signal.SIGTERM, receiveSignal)
 
