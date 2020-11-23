@@ -15,7 +15,8 @@
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@4.5.3/dist/js/bootstrap.bundle.min.js"
         integrity="sha384-ho+j7jyWK8fNQe+A12Hb8AhRq26LrZ/JpcUGGOn+Y7RsweNrtN/tE3MoK7ZeZDyx"
         crossorigin="anonymous"></script>
-    <script src="https://cdn.jsdelivr.net/gh/xcash/bootstrap-autocomplete@v2.3.7/dist/latest/bootstrap-autocomplete.min.js"></script>
+    <script
+        src="https://cdn.jsdelivr.net/gh/xcash/bootstrap-autocomplete@v2.3.7/dist/latest/bootstrap-autocomplete.min.js"></script>
 
     <script type="text/javascript" src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
     <script src="https://unpkg.com/papaparse@5.3.0/papaparse.min.js"></script>
@@ -42,6 +43,10 @@
             max-width: 150px;
             margin: 10px;
         }
+
+        .card {
+            background-color: transparent;
+        }
     </style>
 </head>
 
@@ -51,9 +56,26 @@
             <div id="network" class="d-none d-lg-block col-8"></div>
             <div id="form" class="col">
                 <div id="info">Users connected: <span id="users_connected">1</span></div>
+                <div id="accordion" style="display: none">
+                    <div class="card">
+                        <div class="card-header" id="headingOne">
+                            <h5 class="mb-0">
+                                <button class="btn btn-link" data-toggle="collapse" data-target="#previous_entries"
+                                    aria-expanded="true" aria-controls="previous_entries">
+                                    Previous Entries
+                                </button>
+                            </h5>
+                        </div>
+
+                        <div id="previous_entries" class="collapse" aria-labelledby="headingOne"
+                            data-parent="#accordion">
+                        </div>
+                    </div>
+                </div>
                 <div id="form_entries"></div>
                 <div class="text-center">
-                    <button id="add" class="btn btn-primary mt-3">Add entry</button> <button id="export" class="btn btn-success mt-3">Export as CSV</button>
+                    <button id="add" class="btn btn-primary mt-3">Add entry</button> <button id="export"
+                        class="btn btn-success mt-3">Export as CSV</button>
                 </div>
             </div>
         </div>
@@ -96,7 +118,7 @@
 
         //var ws = new WebSocket("ws://localhost:6789/");
         var ws = new WebSocket("wss://api-proxy.auckland-cer.cloud.edu.au/dynamic_network_graph");
-        ws.onmessage = function(event) {
+        ws.onmessage = function (event) {
             data = JSON.parse(event.data);
             console.log(data);
             if (data.session_id) {
@@ -105,18 +127,23 @@
             } else if (data.user_count) {
                 $("#users_connected").text(data.user_count);
             } else if (data.entries) {
+                $("#accordion").show();
                 for (entry of Object.values(data.entries)) {
                     console.log(entry)
-                    nodes.update({id: entry.donor.toLowerCase(), label: entry.donor})
-                    nodes.update({id: entry.recipient.toLowerCase(), label: entry.recipient})
-                    edges.update({from: entry.donor.toLowerCase(), to: entry.recipient.toLowerCase(), id: entry.id, label: entry.resourceType, arrows: "to", color: getColorForResourceType(entry.resourceType)})
+                    nodes.update({ id: entry.donor.toLowerCase(), label: entry.donor })
+                    nodes.update({ id: entry.recipient.toLowerCase(), label: entry.recipient })
+                    edges.update({ from: entry.donor.toLowerCase(), to: entry.recipient.toLowerCase(), id: entry.id, label: entry.resourceType, arrows: "to", color: getColorForResourceType(entry.resourceType) })
+                    if ($("#" + $.escapeSelector(entry.id)).length == 0) {
+                        $("#previous_entries").append(buildHTML(entry.id, entry.donor, entry.resourceType, entry.recipient));
+                    }
                 }
+                setupHooks();
             } else if (data.error) {
                 $("#info").html(`<div class="alert alert-danger" role="alert">Error: ${data.error}</div>`)
             }
         }
 
-        ws.onopen = function() {
+        ws.onopen = function () {
             if (location.hash.length > 1) {
                 window.session_id = location.hash.slice(1);
                 ws.send(JSON.stringify({
@@ -135,26 +162,26 @@
         }
 
         function uniq(arr) {
-            return [ ...new Set(arr) ];
+            return [...new Set(arr)];
         }
 
-        $("#add").click(function() {
-            console.log("add")
-            var id = Math.random();
-            var html = `<div class="form-row">
-                            <form class="form-inline" id=${id} class="row">
-                                <label class="sr-only" for="orgA_${id}">Organisation A</label>
-                                <input type="text" class="form-control org orgA col search" id="orgA_${id}" placeholder="Organisation A" autocomplete="off">
-                                gives
-                                <label class="sr-only" for="resourceType_${id}">Resource type</label>
-                                <input type="text" class="form-control resourceType col search" id="resourceType_${id}" placeholder="Resource type" autocomplete="off">
-                                to
-                                <label class="sr-only" for="orgB_${id}">Organisation B</label>
-                                <input type="text" class="form-control org orgB col search" id="orgB_${id}" placeholder="Organisation B" autocomplete="off">
-                            </form>
-                        </div>`;
-            $("#form_entries").append(html);
-            $(".form-control").change(function(e) {
+        function buildHTML(id, orgA = "", resourceType = "", orgB = "") {
+            return `<div class="form-row">
+                        <form class="form-inline" id=${id} class="row">
+                            <label class="sr-only" for="orgA_${id}">Organisation A</label>
+                            <input type="text" class="form-control org orgA col search" id="orgA_${id}" placeholder="Organisation A" autocomplete="off" value="${orgA}">
+                            gives
+                            <label class="sr-only" for="resourceType_${id}">Resource type</label>
+                            <input type="text" class="form-control resourceType col search" id="resourceType_${id}" placeholder="Resource type" autocomplete="off" value="${resourceType}">
+                            to
+                            <label class="sr-only" for="orgB_${id}">Organisation B</label>
+                            <input type="text" class="form-control org orgB col search" id="orgB_${id}" placeholder="Organisation B" autocomplete="off" value="${orgB}">
+                        </form>
+                    </div>`
+        }
+
+        function setupHooks() {
+            $(".form-control").change(function (e) {
                 var parent = $(this).parent();
                 var donor = $(".orgA", parent).val().trim();
                 var resourceType = $(".resourceType", parent).val().trim();
@@ -163,7 +190,7 @@
                 console.log(this.id, donor, resourceType, recipient, entryId);
                 if (donor && recipient && resourceType) {
                     console.log(`linking ${donor} to ${recipient}`)
-                    edges.update({from: donor.toLowerCase(), to: recipient.toLowerCase(), id: entryId, label: resourceType, arrows: "to", color: getColorForResourceType(resourceType)})
+                    edges.update({ from: donor.toLowerCase(), to: recipient.toLowerCase(), id: entryId, label: resourceType, arrows: "to", color: getColorForResourceType(resourceType) })
                     ws.send(JSON.stringify({
                         action: "upsert_entry",
                         session_id: window.session_id,
@@ -176,7 +203,7 @@
                     }))
                 }
                 if (!$(this).hasClass("resourceType")) {
-                    nodes.update({id: this.value.toLowerCase(), label: this.value})
+                    nodes.update({ id: this.value.toLowerCase(), label: this.value })
                 }
             });
             $('.org').autoComplete({
@@ -201,9 +228,17 @@
                     }
                 }
             });
+        }
+
+        $("#add").click(function () {
+            console.log("add")
+            var id = Math.random();
+            var html = buildHTML(id);
+            $("#form_entries").append(html);
+            setupHooks();
         })
 
-        $("#export").click(function() {
+        $("#export").click(function () {
             var rows = []
             for (var entry of edges.get()) {
                 rows.push({
@@ -213,7 +248,7 @@
                 })
             }
             var csv = Papa.unparse(rows);
-        
+
             console.log(csv);
             var hiddenElement = document.createElement('a');
             hiddenElement.href = 'data:text/csv;charset=utf-8,' + encodeURI(csv);
