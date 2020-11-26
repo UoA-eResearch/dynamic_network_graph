@@ -130,9 +130,9 @@
                 $("#accordion").show();
                 for (entry of Object.values(data.entries)) {
                     console.log(entry)
-                    nodes.update({ id: entry.donor.toLowerCase(), label: entry.donor })
-                    nodes.update({ id: entry.recipient.toLowerCase(), label: entry.recipient })
-                    edges.update({ from: entry.donor.toLowerCase(), to: entry.recipient.toLowerCase(), id: entry.id, label: entry.resourceType, arrows: "to", color: getColorForResourceType(entry.resourceType) })
+                    nodes.update({ id: entry.donor.toString().toLowerCase(), label: entry.donor })
+                    nodes.update({ id: entry.recipient.toString().toLowerCase(), label: entry.recipient })
+                    edges.update({ from: entry.donor.toString().toLowerCase(), to: entry.recipient.toString().toLowerCase(), id: entry.id, label: entry.resourceType, arrows: "to", color: getColorForResourceType(entry.resourceType) })
                     if ($("#" + $.escapeSelector(entry.id)).length == 0) {
                         $("#previous_entries").append(buildHTML(entry.id, entry.donor, entry.resourceType, entry.recipient));
                     }
