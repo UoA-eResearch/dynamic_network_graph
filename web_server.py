@@ -90,7 +90,7 @@ async def app(websocket, path):
                     await asyncio.wait([user.send(message) for user in sess["users"]])
 
 
-start_server = websockets.serve(app, "localhost", 6789)
+start_server = websockets.serve(app, "0.0.0.0", 6789)
 
 try:
     asyncio.get_event_loop().run_until_complete(asyncio.wait([
