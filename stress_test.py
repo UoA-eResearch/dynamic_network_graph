@@ -9,6 +9,7 @@ import pandas as pd
 
 URI = "wss://api-proxy.auckland-cer.cloud.edu.au/dynamic_network_graph"
 #URI = "ws://api-proxy.auckland-cer.cloud.edu.au:6789"
+#URI = "ws://localhost:6789"
 SESSION_ID = "STRESS_TEST"
 MAX_CLIENTS = 1000
 
@@ -31,19 +32,23 @@ async def test():
             }
         }))
         tts = time.time() - start
-        await websocket.recv()
+        try:
+            while True:
+                await asyncio.wait_for(websocket.recv(), 0)
+        except asyncio.exceptions.TimeoutError:
+            pass
         ttr = time.time() - start
-        return {"ttc": ttc, "tts": tts, "ttr": ttr}
+        await websocket.close()
+        tte = time.time() - start
+        return {"ttc": ttc, "tts": tts, "ttr": ttr, "tte": tte}
 
 async def run_n_tests(n):
     results = await asyncio.gather(*[test() for i in range(n)])
     df = pd.DataFrame(results)
     return df
 
-print("n_clients,mttc,mttr,wall_time")
-for n_clients in range(10, MAX_CLIENTS, 10):
+print("n_clients,mttc,mtts,mttr,mtte,wall_time")
+for n_clients in range(10, MAX_CLIENTS, 100):
     start = time.time()
-    df = asyncio.get_event_loop().run_until_complete(run_n_tests(n_clients))
-    mttc = df.ttc.mean()
-    mttr = df.ttr.mean()
-    print(f"{len(df)},{mttc},{mttr},{time.time() - start}")
+    df = asyncio.run(run_n_tests(n_clients))
+    print(f"{len(df)},{','.join(str(x) for x in df.mean().values)},{time.time() - start}")

@@ -92,6 +92,11 @@ async def app(websocket, path):
 
 start_server = websockets.serve(app, "0.0.0.0", 6789)
 
+def exception_handler(loop,context):
+    logging.debug(context["message"])
+
+asyncio.get_event_loop().set_exception_handler(exception_handler)
+
 try:
     asyncio.get_event_loop().run_until_complete(asyncio.wait([
         start_server,
