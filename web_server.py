@@ -78,7 +78,7 @@ async def app(websocket, path):
                     message = json.dumps({"deleted_entry": entry_id}) # Inform all connected users about the deleted entry
                     await asyncio.wait([user.send(message) for user in sess["users"]])
             else:
-                logging.error("unsupported event: {}", data)
+                logging.error(f"unsupported event: {data}")
     except websockets.exceptions.ConnectionClosedError as e:
         logging.error(f"User disconnected: {e}")
     finally:
