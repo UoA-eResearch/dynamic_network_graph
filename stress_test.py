@@ -8,7 +8,7 @@ import time
 
 URI = "wss://api-proxy.auckland-cer.cloud.edu.au/dynamic_network_graph"
 #URI = "ws://api-proxy.auckland-cer.cloud.edu.au:6789"
-URI = "ws://localhost:6789"
+#URI = "ws://localhost:6789"
 SESSION_ID = "STRESS_TEST"
 connections = []
 
@@ -48,4 +48,4 @@ async def main():
         for ws in connections:
             await read_all(ws)
 
-asyncio.run(main())
+asyncio.get_event_loop().run_until_complete(main())
