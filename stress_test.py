@@ -5,6 +5,7 @@ import websockets
 import json
 import random
 import time
+import numpy as np
 
 URI = "wss://api-proxy.auckland-cer.cloud.edu.au/dynamic_network_graph"
 #URI = "ws://api-proxy.auckland-cer.cloud.edu.au:6789"
@@ -19,7 +20,7 @@ async def read_all(websocket):
     except:
         return
 
-async def test(i):
+async def test():
     start = time.time()
     websocket = await websockets.connect(URI)
     connections.append(websocket)
@@ -39,11 +40,16 @@ async def test(i):
     }))
     return time.time() - start
 
+async def run_n_tests(n):
+    results = await asyncio.gather(*[test() for i in range(n)])
+    return results
+
 async def main():
     print("n_clients,t,wall_time")
     start = time.time()
-    for i in range(1000):
-        result = await test(i)
+    for i in range(100):
+        result = await run_n_tests(15)
+        result = np.mean(result)
         print(f"{len(connections)},{result},{time.time() - start}")
         for ws in connections:
             await read_all(ws)
