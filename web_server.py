@@ -9,6 +9,9 @@ import signal
 import sys
 
 logging.basicConfig(level=logging.INFO)
+logging.getLogger("asyncio").setLevel(logging.CRITICAL)
+logging.getLogger("websockets").setLevel(logging.CRITICAL)
+
 sessions = {}
 try:
     with open("db.json", "r") as f:
@@ -80,7 +83,8 @@ async def app(websocket, path):
             else:
                 logging.error(f"unsupported event: {data}")
     except websockets.exceptions.ConnectionClosedError as e:
-        logging.error(f"User disconnected: {e}")
+        pass
+        #logging.error(f"User disconnected: {e}")
     finally:
         for session_id, sess in sessions.items():
             if sess.get("users") and websocket in sess["users"]:
