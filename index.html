@@ -20,6 +20,7 @@
 
     <script type="text/javascript" src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
     <script src="https://unpkg.com/papaparse@5.3.0/papaparse.min.js"></script>
+    <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
     <style>
         html,
         body,
@@ -116,53 +117,115 @@
             return color;
         }
 
-        //var ws = new WebSocket("ws://localhost:6789/");
-        var ws = new WebSocket("wss://api-proxy.auckland-cer.cloud.edu.au/dynamic_network_graph");
-        ws.onmessage = function (event) {
-            data = JSON.parse(event.data);
-            console.log(data);
-            if (data.session_id) {
-                window.session_id = data.session_id;
-                location.hash = data.session_id;
-            } else if (data.user_count) {
-                $("#users_connected").text(data.user_count);
-            } else if (data.entries) {
+        var isHost = false;
+        var hostConn = null;
+        var clientConns = [];
+        var sessionEntries = {};
+
+        function broadcastToClients(msgObj) {
+            var msgStr = JSON.stringify(msgObj);
+            clientConns.forEach(function (conn) {
+                if (conn.open) conn.send(msgStr);
+            });
+        }
+
+        function handleMessage(msgObj) {
+            if (typeof msgObj === 'string') msgObj = JSON.parse(msgObj);
+            console.log(msgObj);
+            if (msgObj.user_count !== undefined) {
+                $("#users_connected").text(msgObj.user_count);
+            } else if (msgObj.entries) {
                 $("#accordion").show();
-                for (entry of Object.values(data.entries)) {
-                    console.log(entry)
-                    nodes.update({ id: entry.donor.toString().toLowerCase(), label: entry.donor })
-                    nodes.update({ id: entry.recipient.toString().toLowerCase(), label: entry.recipient })
-                    edges.update({ from: entry.donor.toString().toLowerCase(), to: entry.recipient.toString().toLowerCase(), id: entry.id, label: entry.resourceType, arrows: "to", color: getColorForResourceType(entry.resourceType) })
+                for (var entry of Object.values(msgObj.entries)) {
+                    console.log(entry);
+                    nodes.update({ id: entry.donor.toString().toLowerCase(), label: entry.donor });
+                    nodes.update({ id: entry.recipient.toString().toLowerCase(), label: entry.recipient });
+                    edges.update({ from: entry.donor.toString().toLowerCase(), to: entry.recipient.toString().toLowerCase(), id: entry.id, label: entry.resourceType, arrows: "to", color: getColorForResourceType(entry.resourceType) });
                     if ($("#" + $.escapeSelector(entry.id)).length == 0) {
                         $("#previous_entries").append(buildHTML(entry.id, entry.donor, entry.resourceType, entry.recipient));
                     }
                 }
                 setupHooks();
-            } else if (data.deleted_entry) {
-                $("#" + $.escapeSelector(data.deleted_entry)).remove()
-                edges.remove(data.deleted_entry)
-            } else if (data.error) {
-                $("#info").html(`<div class="alert alert-danger" role="alert">Error: ${data.error}</div>`)
+            } else if (msgObj.deleted_entry !== undefined) {
+                $("#" + $.escapeSelector(msgObj.deleted_entry)).remove();
+                edges.remove(msgObj.deleted_entry);
+            } else if (msgObj.error) {
+                $("#info").html(`<div class="alert alert-danger" role="alert">Error: ${msgObj.error}</div>`);
             }
         }
 
-        ws.onopen = function () {
-            if (location.hash.length > 1) {
-                window.session_id = location.hash.slice(1);
-                ws.send(JSON.stringify({
-                    action: "connect",
-                    session_id: window.session_id
-                }))
-                ws.send(JSON.stringify({
-                    action: "request_entries",
-                    session_id: window.session_id
-                }))
-            } else {
-                ws.send(JSON.stringify({
-                    action: "create_session"
-                }))
+        function processAsHost(action, payload) {
+            if (action === 'upsert_entry') {
+                if (!payload.entry || payload.entry.id === undefined) return;
+                sessionEntries[payload.entry.id] = payload.entry;
+                var msg = { entries: { [payload.entry.id]: payload.entry } };
+                handleMessage(msg);
+                broadcastToClients(msg);
+            } else if (action === 'delete_entry') {
+                if (payload.entry_id === undefined) return;
+                delete sessionEntries[payload.entry_id];
+                var msg = { deleted_entry: payload.entry_id };
+                handleMessage(msg);
+                broadcastToClients(msg);
             }
         }
+
+        function sendAction(action, payload) {
+            if (isHost) {
+                processAsHost(action, payload);
+            } else if (hostConn && hostConn.open) {
+                hostConn.send(JSON.stringify(Object.assign({ action: action }, payload)));
+            }
+        }
+
+        var peer = new Peer(location.hash.length > 1 ? undefined : crypto.randomUUID().replace(/-/g, ''));
+
+        peer.on('open', function (id) {
+            if (location.hash.length > 1) {
+                window.session_id = location.hash.slice(1);
+                hostConn = peer.connect(window.session_id, { reliable: true });
+                hostConn.on('data', function (data) {
+                    handleMessage(data);
+                });
+                hostConn.on('close', function () {
+                    $("#info").html('<div class="alert alert-warning" role="alert">Host disconnected.</div>');
+                });
+            } else {
+                isHost = true;
+                window.session_id = id;
+                location.hash = id;
+                peer.on('connection', function (conn) {
+                    conn.on('open', function () {
+                        clientConns.push(conn);
+                        conn.send(JSON.stringify({ entries: sessionEntries }));
+                        var count = clientConns.filter(function (c) { return c.open; }).length + 1;
+                        handleMessage({ user_count: count });
+                        broadcastToClients({ user_count: count });
+                    });
+                    conn.on('data', function (data) {
+                        try {
+                            var msg = typeof data === 'string' ? JSON.parse(data) : data;
+                            processAsHost(msg.action, msg);
+                        } catch (e) {
+                            console.error('Failed to process message:', e);
+                        }
+                    });
+                    conn.on('close', function () {
+                        clientConns = clientConns.filter(function (c) { return c !== conn; });
+                        var count = clientConns.filter(function (c) { return c.open; }).length + 1;
+                        handleMessage({ user_count: count });
+                        broadcastToClients({ user_count: count });
+                    });
+                });
+            }
+        });
+
+        peer.on('error', function (err) {
+            console.error('PeerJS error:', err);
+            if (err.type === 'peer-unavailable') {
+                $("#info").html('<div class="alert alert-danger" role="alert">Session not found. The host may have disconnected.</div>');
+            }
+        });
 
         function uniq(arr) {
             return [...new Set(arr)];
@@ -194,16 +257,14 @@
             if (donor && recipient && resourceType) {
                 console.log(`linking ${donor} to ${recipient}`)
                 edges.update({ from: donor.toLowerCase(), to: recipient.toLowerCase(), id: entryId, label: resourceType, arrows: "to", color: getColorForResourceType(resourceType) })
-                ws.send(JSON.stringify({
-                    action: "upsert_entry",
-                    session_id: window.session_id,
+                sendAction("upsert_entry", {
                     entry: {
                         id: entryId,
                         donor: donor,
                         resourceType: resourceType,
                         recipient: recipient
                     }
-                }))
+                });
             }
             if (!$(this).hasClass("resourceType")) {
                 nodes.update({ id: this.value.toLowerCase(), label: this.value })
@@ -215,11 +276,7 @@
             console.log(`deleting ${entryId}`)
             $(this).parent().remove();
             edges.remove(entryId)
-            ws.send(JSON.stringify({
-                action: "delete_entry",
-                session_id: window.session_id,
-                entry_id: entryId
-            }))
+            sendAction("delete_entry", { entry_id: entryId });
         }
 
         function setupHooks() {

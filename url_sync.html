@@ -15,6 +15,7 @@
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@4.5.3/dist/js/bootstrap.bundle.min.js"
         integrity="sha384-ho+j7jyWK8fNQe+A12Hb8AhRq26LrZ/JpcUGGOn+Y7RsweNrtN/tE3MoK7ZeZDyx"
         crossorigin="anonymous"></script>
+    <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
     <style>
         html,
         body,
@@ -40,56 +41,110 @@
     <iframe src="https://imdmap.auckland.ac.nz"></iframe>
 
     <script type="text/javascript">
-        //var ws = new WebSocket("ws://localhost:6789/");
-        var ws = new WebSocket("wss://api-proxy.auckland-cer.cloud.edu.au/dynamic_network_graph");
-        ws.onmessage = function (event) {
-            data = JSON.parse(event.data);
-            console.log(data);
-            if (data.session_id) {
-                window.session_id = data.session_id;
-                location.hash = data.session_id;
-            } else if (data.user_count) {
-                $("#users_connected").text(data.user_count);
-            } else if (data.entries) {
-                for (var entry of Object.values(data.entries)) {
+        var isHost = false;
+        var hostConn = null;
+        var clientConns = [];
+        var sessionEntries = {};
+
+        function broadcastToClients(msgObj) {
+            var msgStr = JSON.stringify(msgObj);
+            clientConns.forEach(function (conn) {
+                if (conn.open) conn.send(msgStr);
+            });
+        }
+
+        function handleMessage(msgObj) {
+            if (typeof msgObj === 'string') msgObj = JSON.parse(msgObj);
+            console.log(msgObj);
+            if (msgObj.user_count !== undefined) {
+                $("#users_connected").text(msgObj.user_count);
+            } else if (msgObj.entries) {
+                for (var entry of Object.values(msgObj.entries)) {
                     if (entry.id == "URL") {
                         var URL = entry.URL;
                         $("#URL").val(URL);
-                        $("iframe").attr("src", URL)
+                        $("iframe").attr("src", URL);
                     }
                 }
-            } else if (data.error) {
-                $("#info").html(`<div class="alert alert-danger" role="alert">Error: ${data.error}</div>`)
+            } else if (msgObj.error) {
+                $("#info").html(`<div class="alert alert-danger" role="alert">Error: ${msgObj.error}</div>`);
             }
         }
 
-        ws.onopen = function () {
+        function processAsHost(action, payload) {
+            if (action === 'upsert_entry') {
+                if (!payload.entry || payload.entry.id === undefined) return;
+                sessionEntries[payload.entry.id] = payload.entry;
+                var msg = { entries: { [payload.entry.id]: payload.entry } };
+                handleMessage(msg);
+                broadcastToClients(msg);
+            }
+        }
+
+        function sendAction(action, payload) {
+            if (isHost) {
+                processAsHost(action, payload);
+            } else if (hostConn && hostConn.open) {
+                hostConn.send(JSON.stringify(Object.assign({ action: action }, payload)));
+            }
+        }
+
+        var peer = new Peer(location.hash.length > 1 ? undefined : crypto.randomUUID().replace(/-/g, ''));
+
+        peer.on('open', function (id) {
             if (location.hash.length > 1) {
                 window.session_id = location.hash.slice(1);
-                ws.send(JSON.stringify({
-                    action: "connect",
-                    session_id: window.session_id
-                }))
-                ws.send(JSON.stringify({
-                    action: "request_entries",
-                    session_id: window.session_id
-                }))
+                hostConn = peer.connect(window.session_id, { reliable: true });
+                hostConn.on('data', function (data) {
+                    handleMessage(data);
+                });
+                hostConn.on('close', function () {
+                    $("#info").html('<div class="alert alert-warning" role="alert">Host disconnected.</div>');
+                });
             } else {
-                ws.send(JSON.stringify({
-                    action: "create_session"
-                }))
+                isHost = true;
+                window.session_id = id;
+                location.hash = id;
+                peer.on('connection', function (conn) {
+                    conn.on('open', function () {
+                        clientConns.push(conn);
+                        conn.send(JSON.stringify({ entries: sessionEntries }));
+                        var count = clientConns.filter(function (c) { return c.open; }).length + 1;
+                        handleMessage({ user_count: count });
+                        broadcastToClients({ user_count: count });
+                    });
+                    conn.on('data', function (data) {
+                        try {
+                            var msg = typeof data === 'string' ? JSON.parse(data) : data;
+                            processAsHost(msg.action, msg);
+                        } catch (e) {
+                            console.error('Failed to process message:', e);
+                        }
+                    });
+                    conn.on('close', function () {
+                        clientConns = clientConns.filter(function (c) { return c !== conn; });
+                        var count = clientConns.filter(function (c) { return c.open; }).length + 1;
+                        handleMessage({ user_count: count });
+                        broadcastToClients({ user_count: count });
+                    });
+                });
             }
-        }
+        });
+
+        peer.on('error', function (err) {
+            console.error('PeerJS error:', err);
+            if (err.type === 'peer-unavailable') {
+                $("#info").html('<div class="alert alert-danger" role="alert">Session not found. The host may have disconnected.</div>');
+            }
+        });
 
         $("#URL").change(function() {
-            ws.send(JSON.stringify({
-                action: "upsert_entry",
-                session_id: window.session_id,
+            sendAction("upsert_entry", {
                 entry: {
                     id: "URL",
                     URL: this.value
                 }
-            }));
+            });
         })
     </script>
 </body>
